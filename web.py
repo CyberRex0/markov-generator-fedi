@@ -187,7 +187,7 @@ def generate_do():
     if not text:
         return '文章の生成に失敗しました'
 
-    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi'
+    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}'
         
     return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text))
 
