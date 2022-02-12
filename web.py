@@ -3,7 +3,6 @@ from flask import Flask, make_response, render_template, request, redirect, sess
 import mastodon
 from misskey import Misskey, MiAuth
 from misskey.exceptions import *
-import requests
 import random
 from datetime import timedelta
 import urllib.parse
