@@ -62,7 +62,7 @@
             </div>
             <br>
             <div>
-                <button class="btn btn-primary" onclick="clipboard_set(decodeURIComponent('{{ share_text }}'))" data-bs-trigger="manual" data-toggle="tooltip" data-bs-placement="bottom" title="コピーしました"><i class="bi bi-clipboard"></i>クリップボードにコピー</button>
+                <button class="btn btn-primary" data-bs-trigger="manual" data-toggle="tooltip" data-bs-placement="bottom" title="コピーしました"><i class="bi bi-clipboard"></i>クリップボードにコピー</button>
                 &nbsp;
                 <button class="btn btn-primary" onclick="location.reload();"><i class="bi bi-arrow-clockwise"></i></button>
             </div>
@@ -83,6 +83,7 @@
                 });
 
                 $('#copyButton').on('click', function () {
+                    clipboard_set(decodeURIComponent('{{ share_text }}'));
                     $('#copyButton').tooltip('show');
                 });
                 $('#copyButton').on('shown.bs.tooltip', function () {
