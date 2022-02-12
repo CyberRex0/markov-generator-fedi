@@ -11,6 +11,7 @@ import sqlite3
 import re
 import MeCab
 import markovify
+import config
 
 def dict_factory(cursor, row):
    d = {}
@@ -197,4 +198,4 @@ def logout():
     return redirect('/')
 
 
-app.run(host='127.0.0.1', port=8888, debug=True, threaded=True)
+app.run(host='127.0.0.1', port=getattr(config, 'PORT') or 8888, debug=True, threaded=True)
