@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width">
+        <title>マルコフ連鎖ジェネレーター for Fediverse</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+        <style type="text/css">
+            body {
+                margin: 4px;
+            }
+        </style>
+
+        <!-- OGP TAG -->
+        <meta property="og:title" content="マルコフ連鎖ジェネレーター for Fediverse">
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="https://{{ request.host }}/">
+        <meta property="og:description" content="あなたのMisskey/Mastodonアカウントの投稿を学習して文章を生成します">
+    </head>
+    <body>
+        <div class="container">
+            <h1>マルコフ連鎖ジェネレーター for Fediverse</h1>
+            <p>
+                <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal">ログインして学習</a><br>
+                <a href="/generate">文章生成</a>
+            </p>
+
+            <!-- Login Modal -->
+            <div class="modal fade " id="loginModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">ログインして学習する</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form action="/login" method="POST" id="login-form">
+                            <p>インスタンスの種類</p>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="type" id="software" value="misskey" checked>
+                                <label class="form-check-label" for="software">Misskey</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="type" id="software2" value="mastodon">
+                                <label class="form-check-label" for="software2">Mastodon</label>
+                            </div>
+                            <p>インスタンスのホスト名</p>
+                            <div class="form-input">
+                                <input type="text" name="hostname" id="hostname" class="form-control" placeholder="example.com" required>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('login-form').submit();">続行</button>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    </body>
+</html>

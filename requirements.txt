@@ -1,0 +1,4 @@
+mecab-python3
+markovify
+google-api-python-client
+Flask
