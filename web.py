@@ -11,6 +11,9 @@ import re
 import MeCab
 import markovify
 import config
+import requests
+import uuid
+import hashlib
 
 def dict_factory(cursor, row):
    d = {}
@@ -52,12 +55,44 @@ def login():
     if data['type'] == 'misskey':
         session['logged_in'] = False
         session.permanent = True
-        miauth = MiAuth(address=data['hostname'], name='markov-generator-fedi', callback=f'{request.host_url}login/callback', permission=[Permissions.READ_ACCOUNT])
-        url = miauth.generate_url()
-        session['session_id'] = miauth.session_id
         session['hostname'] = data['hostname']
         session['type'] = data['type']
-        return redirect(url)
+        mi = Misskey(address=data['hostname'])
+        instance_info = mi.meta()
+
+        if instance_info['features'].get('miauth') == True:
+            miauth = MiAuth(address=data['hostname'], name='markov-generator-fedi', callback=f'{request.host_url}login/callback', permission=[Permissions.READ_ACCOUNT])
+            url = miauth.generate_url()
+            session['session_id'] = miauth.session_id
+            session['mi_legacy'] = False
+            return redirect(url)
+        else:
+            # v12.39.1以前のインスタンス向け
+
+            options = {
+                'name': 'markov-generator-fedi (Legacy)',
+                'callback': f'{request.host_url}login/callback',
+                'permission': ['read:account'],
+                'description': 'Created by CyberRex (@cyberrex_v2@misskey.io)',
+                'callbackUrl': f'{request.host_url}login/callback',
+            }
+
+            r = requests.post(f'https://{data["hostname"]}/api/app/create', json=options)
+            if r.status_code != 200:
+                return make_response(f'Failed to generate app: {r.text}', 500)
+            j = r.json()
+
+            secret_key = j['secret']
+
+            r = requests.post(f'https://{data["hostname"]}/api/auth/session/generate', json={'appSecret': secret_key})
+            if r.status_code != 200:
+                return make_response(f'Failed to generate session: {r.text}', 500)
+            j = r.json()
+            
+            session['mi_session_token'] = j['token']
+            session['mi_secret_key'] = secret_key
+            session['mi_legacy'] = True
+            return redirect(j['url'])
     
     if data['type'] == 'mastodon':
         session['logged_in'] = False
@@ -81,16 +116,32 @@ def login():
 @app.route('/login/callback')
 def login_msk_callback():
     if not ('logged_in' in list(session.keys())):
-        return make_response('セッションデータが異常です。Cookieを有効にしているか確認の上再試行してください。', 400)
+        return make_response('セッションデータが異常です。Cookieを有効にしているか確認の上再試行してください。<a href="/">トップページへ戻る</a>', 400)
 
     if session['type'] == 'misskey':
 
-        miauth = MiAuth(session['hostname'] ,session_id=session['session_id'])
-        try:
-            token = miauth.check()
-        except MisskeyMiAuthFailedException:
-            return make_response('認証に失敗しました。', 500)
-        session['token'] = token
+        if not session['mi_legacy']:
+
+            miauth = MiAuth(session['hostname'] ,session_id=session['session_id'])
+            try:
+                token = miauth.check()
+            except MisskeyMiAuthFailedException:
+                session.clear()
+                return make_response('認証に失敗しました。', 500)
+            session['token'] = token
+
+        else:
+            secret_key = session['mi_secret_key']
+            session_token = session['mi_session_token']
+            r = requests.post(f'https://{session["hostname"]}/api/auth/session/userkey', json={'appSecret': secret_key, 'token': session_token})
+            if r.status_code != 200:
+                return make_response(f'Failed to generate session: {r.text}', 500)
+            j = r.json()
+
+            access_token = j['accessToken']
+            ccStr = f'{access_token}{secret_key}'
+            token = hashlib.sha256(ccStr.encode('utf-8')).hexdigest()
+            
 
         mi: Misskey = Misskey(address=session['hostname'], i=token)
         i = mi.i()
@@ -183,11 +234,14 @@ def generate_do():
             return f'{acct} の学習データが見つかりませんでした。 '
 
     text_model = markovify.Text.from_json(data['data'])
-    text = text_model.make_sentence(tries=100).replace(' ', '')
+    try:
+        text = text_model.make_sentence(tries=100).replace(' ', '')
+    except AttributeError:
+        text = None
     if not text:
-        return '文章の生成に失敗しました'
+        return '文章の生成に失敗しました <a href="javascript:location.reload();">再試行</a>'
 
-    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}'
+    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}?no_ogp=true'
         
     return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text))
 
