@@ -198,4 +198,4 @@ def logout():
     return redirect('/')
 
 
-app.run(host='127.0.0.1', port=getattr(config, 'PORT') or 8888, debug=True, threaded=True)
+app.run(host='127.0.0.1', port=getattr(config, 'PORT') or 8888, debug=getattr(config, 'DEBUG') or True, threaded=True)
