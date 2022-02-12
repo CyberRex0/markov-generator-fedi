@@ -1,7 +1,7 @@
 import traceback
 from flask import Flask, make_response, render_template, request, redirect, session
 import mastodon
-from misskey import Misskey, MiAuth
+from misskey import Misskey, MiAuth, Permissions
 from misskey.exceptions import *
 import random
 from datetime import timedelta
@@ -52,7 +52,7 @@ def login():
     if data['type'] == 'misskey':
         session['logged_in'] = False
         session.permanent = True
-        miauth = MiAuth(address=data['hostname'], name='markov-generator-fedi', callback=f'{request.host_url}login/callback')
+        miauth = MiAuth(address=data['hostname'], name='markov-generator-fedi', callback=f'{request.host_url}login/callback', permission=[Permissions.READ_ACCOUNT])
         url = miauth.generate_url()
         session['session_id'] = miauth.session_id
         session['hostname'] = data['hostname']
