@@ -12,10 +12,12 @@
         </style>
 
         <!-- OGP TAG -->
+        {% if not request.args.get('no_ogp') %}
         <meta property="og:title" content="マルコフ連鎖ジェネレーター for Fediverse">
         <meta property="og:type" content="website">
         <meta property="og:url" content="https://{{ request.host }}/">
         <meta property="og:description" content="あなたのMisskey/Mastodonアカウントの投稿を学習して文章を生成します">
+        {% endif %}
     </head>
     <body>
         <div class="container">
