@@ -1,4 +1,3 @@
-from tabnanny import check
 import traceback
 from flask import Flask, make_response, render_template, request, redirect, session
 import mastodon
