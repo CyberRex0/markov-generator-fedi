@@ -1,4 +1,6 @@
 mecab-python3
 markovify
-google-api-python-client
 Flask
+unidic
+Misskey.py
+Mastodon.py
