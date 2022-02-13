@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width">
         <title>マルコフ連鎖ジェネレーター for Fediverse</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
         <style type="text/css">
             body {
                 margin: 4px;
@@ -23,7 +24,12 @@
         <div class="container">
             <h1>マルコフ連鎖ジェネレーター for Fediverse</h1>
             <p>
+                {% if not session.get('logged_in') %}
                 <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal">ログインして学習</a><br>
+                {% else %}
+                <p><i class="bi bi-person"></i>{{ session['acct'] }}</p>
+                <a href="/logout">ログアウト</a><br>
+                {% endif %}
                 <a href="/generate">文章生成</a>
             </p>
 
