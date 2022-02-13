@@ -44,6 +44,10 @@
                     <li class="list-group-item">
                         <input type="text" name="acct" class="form-control" placeholder="username@host" aria-label="ユーザー名" value="{{ acct }}">
                         <input type="submit" class="btn btn-primary" value="生成">
+                        {% if session.get('logged_in') %}
+                        <br>
+                        <small>何も指定しないときは現在ログインしているアカウントの学習データを使用します</small>
+                        {% endif %}
                     </li>
                 </form>
                 </ul>
