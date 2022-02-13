@@ -397,7 +397,7 @@ def job_wait():
 
 @app.route('/generate')
 def generate_page():
-    return render_template('generate.html', text=None, acct='', share_text='')
+    return render_template('generate.html', text=None, acct='', share_text='', up=urllib.parse)
 
 @app.route('/generate/do', methods=['GET'])
 def generate_do():
@@ -440,7 +440,7 @@ def generate_do():
     if not text:
         return '<meta name="viewport" content="width=device-width">文章の生成に失敗しました <a href="javascript:location.reload();">再試行</a>'
 
-    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}?no_ogp=true'
+    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}'
         
     return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text))
 
