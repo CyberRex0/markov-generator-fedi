@@ -48,9 +48,10 @@ def create_markov_model_by_multiline(lines: list):
 
     return text_model
 
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; Markov-Generator-Fedi) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'
+
 db = sqlite3.connect('markov.db', check_same_thread=False)
 db.row_factory = dict_factory
-
 
 # job_statusの使い方
 # {
@@ -64,6 +65,9 @@ app = Flask(__name__)
 # ランダムバイトから鍵生成
 app.secret_key = bytes(bytearray(random.getrandbits(8) for _ in range(32)))
 app.permanent_session_lifetime = timedelta(hours=1)
+
+request_session = requests.Session()
+request_session.headers.update({'User-Agent': USER_AGENT})
 
 @app.route('/')
 def root():
@@ -82,11 +86,11 @@ def login():
         session.permanent = True
         session['hostname'] = data['hostname']
         session['type'] = data['type']
-        mi = Misskey(address=data['hostname'])
+        mi = Misskey(address=data['hostname'], session=request_session)
         instance_info = mi.meta()
 
         if instance_info['features'].get('miauth') == True:
-            miauth = MiAuth(address=data['hostname'], name='markov-generator-fedi', callback=f'{request.host_url}login/callback', permission=[Permissions.READ_ACCOUNT])
+            miauth = MiAuth(address=data['hostname'], name='markov-generator-fedi', callback=f'{request.host_url}login/callback', permission=[Permissions.READ_ACCOUNT], session=request_session)
             url = miauth.generate_url()
             session['session_id'] = miauth.session_id
             session['mi_legacy'] = False
@@ -102,14 +106,14 @@ def login():
                 'callbackUrl': f'{request.host_url}login/callback',
             }
 
-            r = requests.post(f'https://{data["hostname"]}/api/app/create', json=options)
+            r = requests.post(f'https://{data["hostname"]}/api/app/create', json=options, headers={'User-Agent': USER_AGENT})
             if r.status_code != 200:
                 return make_response(f'Failed to generate app: {r.text}', 500)
             j = r.json()
 
             secret_key = j['secret']
 
-            r = requests.post(f'https://{data["hostname"]}/api/auth/session/generate', json={'appSecret': secret_key})
+            r = requests.post(f'https://{data["hostname"]}/api/auth/session/generate', json={'appSecret': secret_key}, headers={'User-Agent': USER_AGENT})
             if r.status_code != 200:
                 return make_response(f'Failed to generate session: {r.text}', 500)
             j = r.json()
@@ -125,16 +129,12 @@ def login():
         session['hostname'] = data['hostname']
         session['type'] = data['type']
         
-        #client = mastodon.Mastodon(api_base_url=f'https://{data["hostname"]}')
-        #app = client.create_app(client_name='markov-generator-fedi', redirect_uris=[f'{request.host_url}login/callback'], scopes=['read'])
-        
-        
         options = {
             'client_name': 'markov-generator-fedi',
             'redirect_uris': f'{request.host_url}login/callback',
             'scopes': 'read write'
         }
-        r = requests.post(f'https://{data["hostname"]}/api/v1/apps', json=options)
+        r = requests.post(f'https://{data["hostname"]}/api/v1/apps', json=options, headers={'User-Agent': USER_AGENT})
         if r.status_code != 200:
             return make_response(f'Failed to regist app: {r.text}', 500)
         d = r.json()
@@ -162,7 +162,7 @@ def login_msk_callback():
 
         if not session['mi_legacy']:
 
-            miauth = MiAuth(session['hostname'] ,session_id=session['session_id'])
+            miauth = MiAuth(session['hostname'] ,session_id=session['session_id'], session=request_session)
             try:
                 token = miauth.check()
             except MisskeyMiAuthFailedException:
@@ -173,7 +173,7 @@ def login_msk_callback():
         else:
             secret_key = session['mi_secret_key']
             session_token = session['mi_session_token']
-            r = requests.post(f'https://{session["hostname"]}/api/auth/session/userkey', json={'appSecret': secret_key, 'token': session_token})
+            r = requests.post(f'https://{session["hostname"]}/api/auth/session/userkey', json={'appSecret': secret_key, 'token': session_token}, headers={'User-Agent': USER_AGENT})
             if r.status_code != 200:
                 return make_response(f'Failed to generate session: {r.text}', 500)
             j = r.json()
@@ -183,7 +183,7 @@ def login_msk_callback():
             token = hashlib.sha256(ccStr.encode('utf-8')).hexdigest()
             
 
-        mi: Misskey = Misskey(address=session['hostname'], i=token)
+        mi: Misskey = Misskey(address=session['hostname'], i=token, session=request_session)
         i = mi.i()
 
         session['username'] = i['username']
@@ -194,17 +194,19 @@ def login_msk_callback():
         job_status[thread_id] = {
             'completed': False,
             'error': None,
-            'progress': 1
+            'progress': 1,
+            'progress_str': '初期化中です'
         }
 
         def proc(job_id, data):
             
             job_status[job_id]['progress'] = 20
+            job_status[job_id]['progress_str'] = '投稿を取得しています。数秒かかります'
 
             # 学習に使うノートを取得
             notes = []
             kwargs = {}
-            mi2: Misskey = Misskey(address=data['hostname'], i=token)
+            mi2: Misskey = Misskey(address=data['hostname'], i=token, session=request_session)
             for i in range(50):
                 notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, limit=100, **kwargs)
                 if not notes_block:
@@ -223,6 +225,7 @@ def login_msk_callback():
                         for l in note['text'].splitlines():
                             lines.append(format_text(l))
             
+            job_status[job_id]['progress_str'] = 'モデルを作成しています'
             job_status[job_id]['progress'] = 80
 
             try:
@@ -234,6 +237,7 @@ def login_msk_callback():
                 }
                 return
             
+            job_status[job_id]['progress_str'] = 'データベースに書き込み中です'
             job_status[job_id]['progress'] = 90
 
             # モデル保存
@@ -253,7 +257,8 @@ def login_msk_callback():
             job_status[job_id] = {
                 'completed': True,
                 'error': None,
-                'progress': 100
+                'progress': 100,
+                'progress_str': '完了'
             }
 
         thread = threading.Thread(target=proc, args=(thread_id, {
@@ -280,14 +285,14 @@ def login_msk_callback():
             'redirect_uri': session['mstdn_redirect_uri'],
             'scope': 'read write',
             'code': auth_code
-        })
+        }, headers={'User-Agent': USER_AGENT})
         if r.status_code != 200:
             return make_response(f'Failed to get token: {r.text}', 500)
         
         d = r.json()
         token = d['access_token']
 
-        r = requests.get('https://' + session['hostname'] + '/api/v1/accounts/verify_credentials', headers={'Authorization': f'Bearer {token}'})
+        r = requests.get('https://' + session['hostname'] + '/api/v1/accounts/verify_credentials', headers={'Authorization': f'Bearer {token}', 'User-Agent': USER_AGENT})
         if r.status_code != 200:
             return make_response(f'Failed to verify credentials: {r.text}', 500)
 
@@ -300,14 +305,16 @@ def login_msk_callback():
         job_status[thread_id] = {
             'completed': False,
             'error': None,
-            'progress': 1
+            'progress': 1,
+            'progress_str': '初期化中です'
         }
 
         def proc(job_id, data):
 
             job_status[job_id]['progress'] = 20
+            job_status[job_id]['progress_str'] = '投稿を取得しています。'
 
-            mstdn = mastodon.Mastodon(client_id=data['mstdn_app_key'], client_secret=data['mstdn_app_secret'], access_token=token, api_base_url=f'https://{data["hostname"]}')
+            mstdn = mastodon.Mastodon(client_id=data['mstdn_app_key'], client_secret=data['mstdn_app_secret'], access_token=token, api_base_url=f'https://{data["hostname"]}', session=request_session)
             toots = mstdn.account_statuses(account['id'], limit=5000)
 
             job_status[job_id]['progress'] = 50
@@ -321,6 +328,7 @@ def login_msk_callback():
                             tx = re.sub(r'<[^>]*>', '', l)
                             lines.append(format_text(tx))
             
+            job_status[job_id]['progress_str'] = 'モデルを作成しています'
             job_status[job_id]['progress'] = 80
 
             try:
@@ -332,6 +340,7 @@ def login_msk_callback():
                 }
                 return
 
+            job_status[job_id]['progress_str'] = 'データベースに書き込み中です'
             job_status[job_id]['progress'] = 90
 
             # モデル保存
@@ -351,7 +360,8 @@ def login_msk_callback():
             job_status[job_id] = {
                 'completed': True,
                 'error': None,
-                'progress': 100
+                'progress': 100,
+                'progress_str': '完了'
             }
         
         thread = threading.Thread(target=proc, args=(thread_id,{
@@ -382,6 +392,7 @@ def job_wait():
     if job_status[job_id]['error']:
         return make_response(job_status[job_id]['error'], 500)
 
+    job_status.pop(job_id)
     return redirect('/generate')
 
 @app.route('/generate')
