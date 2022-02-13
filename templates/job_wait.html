@@ -20,6 +20,7 @@
                 <div class="progress-bar progress-bar-striped progress-bar-animated bg-secondary" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
             </div>
             {% else %}
+            <p>{{ d['progress_str'] }}</p>
             <div class="progress">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: {{ d['progress'] }}%" aria-valuenow="{{ d['progress'] }}" aria-valuemin="0" aria-valuemax="100"></div>
             </div>
