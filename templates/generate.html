@@ -25,6 +25,17 @@
                 return result;
             }
         </script>
+
+        <!-- OGP -->
+        <meta property="og:title" content="マルコフ連鎖ジェネレーター for Fediverse">
+        <meta property="og:type" content="website">
+        {% if not request.args.get('preset') %}
+        <meta property="og:url" content="https://{{ request.host }}/">
+        <meta property="og:description" content="あなたのMisskey/Mastodonアカウントの投稿を学習して文章を生成します">
+        {% else %}
+        <meta property="og:url" content="https://{{ request.host }}/generate?preset={{ up.quote(request.args.get('preset')) }}">
+        <meta property="og:description" content="{{ request.args.get('preset') }}さんの学習データで文章を作ってみよう！">
+        {% endif %}
     </head>
     <body>
         <div class="container">
@@ -42,7 +53,7 @@
                 <ul class="list-group list-group-flush">
                 <form action="/generate/do" method="GET">
                     <li class="list-group-item">
-                        <input type="text" name="acct" class="form-control" placeholder="username@host" aria-label="ユーザー名" value="{{ acct }}">
+                        <input type="text" name="acct" class="form-control" placeholder="username@host" aria-label="ユーザー名" value="{{ acct or request.args.get('preset', '') }}">
                         <input type="submit" class="btn btn-primary" value="生成">
                         {% if session.get('logged_in') %}
                         <br>
@@ -68,7 +79,7 @@
             <div>
                 <button id="copyButton" class="btn btn-primary" data-bs-trigger="manual" data-toggle="tooltip" data-bs-placement="bottom" title="コピーしました"><i class="bi bi-clipboard"></i>クリップボードにコピー</button>
                 &nbsp;
-                <button class="btn btn-primary" onclick="location.reload();"><i class="bi bi-arrow-clockwise"></i></button>
+                <button class="btn btn-primary" data-bs-trigger="tooltip" data-toggle="tooltip" data-bs-placement="bottom" title="文章を再生成します" onclick="location.reload();"><i class="bi bi-arrow-clockwise"></i></button>
             </div>
             {% endif %}
 
