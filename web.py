@@ -51,6 +51,13 @@ def create_markov_model_by_multiline(lines: list):
 db = sqlite3.connect('markov.db', check_same_thread=False)
 db.row_factory = dict_factory
 
+
+# job_statusの使い方
+# {
+#   'completed': bool[True, False], # ジョブが停止したかどうか
+#   'error': Optional[str], # エラーが発生した場合のエラーメッセージ (エラーない時はNoneにする)
+#   'progress': int, # 完了率 (0-100、任意)
+# }
 job_status = {}
 
 app = Flask(__name__)
@@ -186,10 +193,13 @@ def login_msk_callback():
         thread_id = str(uuid.uuid4())
         job_status[thread_id] = {
             'completed': False,
-            'error': None
+            'error': None,
+            'progress': 1
         }
 
         def proc(job_id, data):
+            
+            job_status[job_id]['progress'] = 20
 
             # 学習に使うノートを取得
             notes = []
@@ -202,6 +212,8 @@ def login_msk_callback():
                 else:
                     kwargs['until_id'] = notes_block[-1]['id']
                     notes.extend(notes_block)
+            
+            job_status[job_id]['progress'] = 50
 
             # 解析用に文字列整形
             lines = []
@@ -211,6 +223,8 @@ def login_msk_callback():
                         for l in note['text'].splitlines():
                             lines.append(format_text(l))
             
+            job_status[job_id]['progress'] = 80
+
             try:
                 text_model = create_markov_model_by_multiline(lines)
             except Exception as e:
@@ -220,6 +234,8 @@ def login_msk_callback():
                 }
                 return
             
+            job_status[job_id]['progress'] = 90
+
             # モデル保存
             try:
                 cur = db.cursor()
@@ -236,7 +252,8 @@ def login_msk_callback():
             
             job_status[job_id] = {
                 'completed': True,
-                'error': None
+                'error': None,
+                'progress': 100
             }
 
         thread = threading.Thread(target=proc, args=(thread_id, {
@@ -282,13 +299,18 @@ def login_msk_callback():
         thread_id = str(uuid.uuid4())
         job_status[thread_id] = {
             'completed': False,
-            'error': None
+            'error': None,
+            'progress': 1
         }
 
         def proc(job_id, data):
 
+            job_status[job_id]['progress'] = 20
+
             mstdn = mastodon.Mastodon(client_id=data['mstdn_app_key'], client_secret=data['mstdn_app_secret'], access_token=token, api_base_url=f'https://{data["hostname"]}')
             toots = mstdn.account_statuses(account['id'], limit=5000)
+
+            job_status[job_id]['progress'] = 50
 
             # 解析用に文字列整形
             lines = []
@@ -299,6 +321,8 @@ def login_msk_callback():
                             tx = re.sub(r'<[^>]*>', '', l)
                             lines.append(format_text(tx))
             
+            job_status[job_id]['progress'] = 80
+
             try:
                 text_model = create_markov_model_by_multiline(lines)
             except Exception as e:
@@ -307,6 +331,8 @@ def login_msk_callback():
                     'error': 'Failed to create model: ' + str(e)
                 }
                 return
+
+            job_status[job_id]['progress'] = 90
 
             # モデル保存
             try:
@@ -324,7 +350,8 @@ def login_msk_callback():
             
             job_status[job_id] = {
                 'completed': True,
-                'error': None
+                'error': None,
+                'progress': 100
             }
         
         thread = threading.Thread(target=proc, args=(thread_id,{
@@ -350,7 +377,7 @@ def job_wait():
     # job_wait.html で自動リロードしながら待機させる
 
     if not job_status[job_id]['completed']:
-        return render_template('job_wait.html', job_id=job_id)
+        return render_template('job_wait.html', d=job_status[job_id])
     
     if job_status[job_id]['error']:
         return make_response(job_status[job_id]['error'], 500)
