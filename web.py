@@ -14,6 +14,7 @@ import config
 import requests
 import uuid
 import hashlib
+import copy
 
 def dict_factory(cursor, row):
    d = {}
@@ -107,7 +108,7 @@ def login():
         options = {
             'client_name': 'markov-generator-fedi',
             'redirect_uris': f'{request.host_url}login/callback',
-            'scopes': 'read'
+            'scopes': 'read write'
         }
         r = requests.post(f'https://{data["hostname"]}/api/v1/apps', json=options)
         if r.status_code != 200:
@@ -121,7 +122,7 @@ def login():
             'client_id': d['client_id'],
             'response_type': 'code',
             'redirect_uri': f'{request.host_url}login/callback',
-            'scope': 'read',
+            'scopes': 'read write',
         }
 
         return redirect(f'https://{data["hostname"]}/oauth/authorize?{urllib.parse.urlencode(querys)}')
@@ -219,28 +220,42 @@ def login_msk_callback():
             'client_id': session['mstdn_app_key'],
             'client_secret': session['mstdn_app_secret'],
             'redirect_uris': session['mstdn_redirect_uri'],
+            'scope': 'read write',
             'code': auth_code
         })
         if r.status_code != 200:
             return make_response(f'Failed to get token: {r.text}', 500)
         
         d = r.json()
-        token = d['access_token']
+        token = copy.copy(d['access_token'])
 
         r = requests.get('https://' + session['hostname'] + '/api/v1/apps/verify_credentials', headers={'Authorization': f'Bearer {token}'})
         if r.status_code != 200:
-            return make_response(f'Failed to get verify credentials: {r.text}', 500)
+            return make_response(f'Failed to verify credentials: {r.text}', 500)
 
-        return '<meta name="viewport" content="width=device-width">現在Mastodonでも使えるように開発中です。<a href="/logout">ログアウト</a>'
+        # トゥートしてユーザー情報を取得する (荒業)
+        print(f'TOKEN: {token}')
+        r = requests.post(f'https://{session["hostname"]}/api/v1/statuses',
+            headers={'Authorization': f'Bearer {token}'},
+            json={
+            'status': 'test',
+            'media_ids': [],
+            'poll[options]': [],
+            'poll[expires_in]': 0
+            }
+        )
+        if r.status_code != 200:
+            return make_response(f'Failed to get user infomation: {r.text}', 500)
+        
+        toot = r.json()
 
-        info = r.json()
-
-        session['username'] = account_info['username']
-        session['acct'] = f'{account_info["username"]}@{session["hostname"]}'
+        session['username'] = toot['account']['username']
+        session['acct'] = f'{session["username"]}@{session["hostname"]}'
 
         mstdn = mastodon.Mastodon(client_id=session['mstdn_app_key'], client_secret=session['mstdn_app_secret'], access_token=token, api_base_url=f'https://{session["hostname"]}')
         
-        toots = mstdn.account_statuses(account_info['id'], limit=1000)
+        toots = mstdn.account_statuses(toot['account']['id'], limit=1000)
+        print(toots)
 
 
         session['token'] = d['access_token']
