@@ -402,6 +402,15 @@ def generate_page():
 @app.route('/generate/do', methods=['GET'])
 def generate_do():
     query = request.args
+    
+    min_words = 1
+    if query.get('min_words'):
+        if query['min_words'].isdigit():
+            min_words = int(query['min_words'])
+            if min_words < 1:
+                min_words = 1
+            if min_words > 50:
+                min_words = 50
 
     if not query.get('acct'):
         if not session.get('logged_in'):
@@ -433,16 +442,20 @@ def generate_do():
             return f'<meta name="viewport" content="width=device-width">{acct} の学習データは見つかりませんでした。 '
 
     text_model = markovify.Text.from_json(data['data'])
+    markov_params = dict(
+        tries=100,
+        min_words=min_words
+    )
     try:
-        text = text_model.make_sentence(tries=100).replace(' ', '')
+        text = text_model.make_sentence(**markov_params).replace(' ', '')
     except AttributeError:
         text = None
     if not text:
-        return '<meta name="viewport" content="width=device-width">文章の生成に失敗しました <a href="javascript:location.reload();">再試行</a>'
+        return render_template('generate.html', text='', acct=acct, share_text='', min_words=min_words, failed=True)
 
-    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}'
+    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}'
         
-    return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text))
+    return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text), min_words=min_words, failed=False)
 
 @app.route('/logout')
 def logout():
