@@ -14,7 +14,8 @@ import config
 import requests
 import uuid
 import hashlib
-import copy
+import re
+import threading
 
 def dict_factory(cursor, row):
    d = {}
@@ -33,8 +34,24 @@ def format_text(t):
     t = re.sub(r'\n +', '\n', t)  # Spaces
     return t
 
+def create_markov_model_by_multiline(lines: list):
+    # MeCabで形態素解析
+    parsed_text = []
+    for line in lines:
+        parsed_text.append(MeCab.Tagger('-Owakati').parse(line))
+    
+    # モデル作成
+    try:
+        text_model = markovify.NewlineText('\n'.join(parsed_text), state_size=2)
+    except:
+        raise Exception('<meta name="viewport" content="width=device-width">モデル作成に失敗しました。学習に必要な投稿数が不足している可能性があります。', 500)
+
+    return text_model
+
 db = sqlite3.connect('markov.db', check_same_thread=False)
 db.row_factory = dict_factory
+
+job_status = {}
 
 app = Flask(__name__)
 # ランダムバイトから鍵生成
@@ -166,48 +183,72 @@ def login_msk_callback():
         session['acct'] = f'{i["username"]}@{session["hostname"]}'
         session['user_id'] = i['id']
 
-        # 学習に使うノートを取得
-        notes = []
-        kwargs = {}
-        for i in range(50):
-            notes_block = mi.users_notes(session['user_id'], include_replies=False, include_my_renotes=False, limit=100, **kwargs)
-            if not notes_block:
-                break
-            else:
-                kwargs['until_id'] = notes_block[-1]['id']
-                notes.extend(notes_block)
+        thread_id = str(uuid.uuid4())
+        job_status[thread_id] = {
+            'completed': False,
+            'error': None
+        }
 
-        # 解析用に文字列整形
-        lines = []
-        for note in notes:
-            if note['text']:
-                if len(note['text']) > 2:
-                    for l in note['text'].splitlines():
-                        lines.append(format_text(l))
-        
-        # MeCabで形態素解析
-        parsed_text = []
-        for line in lines:
-            parsed_text.append(MeCab.Tagger('-Owakati').parse(line))
-        
-        # モデル作成
-        try:
-            text_model = markovify.NewlineText('\n'.join(parsed_text), state_size=2)
-        except:
-            return make_response('<meta name="viewport" content="width=device-width">モデル作成に失敗しました。学習に必要な投稿数が不足している可能性があります。', 500)
+        def proc(job_id, data):
 
-        # モデル保存
-        try:
-            cur = db.cursor()
-            cur.execute('REPLACE INTO model_data(acct, data) VALUES (?, ?)', (session['acct'], text_model.to_json()))
-            cur.close()
-            db.commit()
-        except:
-            print(traceback.format_exc())
-            return make_response('<meta name="viewport" content="width=device-width">データベースに書き込めませんでした。', 500)
+            # 学習に使うノートを取得
+            notes = []
+            kwargs = {}
+            mi2: Misskey = Misskey(address=data['hostname'], i=token)
+            for i in range(50):
+                notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, limit=100, **kwargs)
+                if not notes_block:
+                    break
+                else:
+                    kwargs['until_id'] = notes_block[-1]['id']
+                    notes.extend(notes_block)
+
+            # 解析用に文字列整形
+            lines = []
+            for note in notes:
+                if note['text']:
+                    if len(note['text']) > 2:
+                        for l in note['text'].splitlines():
+                            lines.append(format_text(l))
+            
+            try:
+                text_model = create_markov_model_by_multiline(lines)
+            except Exception as e:
+                job_status[job_id] = {
+                    'completed': True,
+                    'error': str(e),
+                }
+                return
+            
+            # モデル保存
+            try:
+                cur = db.cursor()
+                cur.execute('REPLACE INTO model_data(acct, data) VALUES (?, ?)', (data['acct'], text_model.to_json()))
+                cur.close()
+                db.commit()
+            except:
+                print(traceback.format_exc())
+                job_status[job_id] = {
+                    'completed': True,
+                    'error': 'Failed to save model',
+                }
+                return
+            
+            job_status[job_id] = {
+                'completed': True,
+                'error': None
+            }
+
+        thread = threading.Thread(target=proc, args=(thread_id, {
+            'hostname': session['hostname'],
+            'token': token,
+            'acct': session['acct'],
+            'user_id': session['user_id']
+        }))
+        thread.start()
 
         session['logged_in'] = True
-        return redirect('/generate')
+        return redirect('/job_wait?job_id=' + thread_id)
     
     if session['type'] == 'mastodon':
         
@@ -216,10 +257,10 @@ def login_msk_callback():
             return make_response('<meta name="viewport" content="width=device-width">認証に失敗しました。', 500)
         
         r = requests.post(f'https://{session["hostname"]}/oauth/token', json={
-            'grant_type': 'client_credentials',
+            'grant_type': 'authorization_code',
             'client_id': session['mstdn_app_key'],
             'client_secret': session['mstdn_app_secret'],
-            'redirect_uris': session['mstdn_redirect_uri'],
+            'redirect_uri': session['mstdn_redirect_uri'],
             'scope': 'read write',
             'code': auth_code
         })
@@ -227,40 +268,94 @@ def login_msk_callback():
             return make_response(f'Failed to get token: {r.text}', 500)
         
         d = r.json()
-        token = copy.copy(d['access_token'])
+        token = d['access_token']
 
-        r = requests.get('https://' + session['hostname'] + '/api/v1/apps/verify_credentials', headers={'Authorization': f'Bearer {token}'})
+        r = requests.get('https://' + session['hostname'] + '/api/v1/accounts/verify_credentials', headers={'Authorization': f'Bearer {token}'})
         if r.status_code != 200:
             return make_response(f'Failed to verify credentials: {r.text}', 500)
 
-        # トゥートしてユーザー情報を取得する (荒業)
-        print(f'TOKEN: {token}')
-        r = requests.post(f'https://{session["hostname"]}/api/v1/statuses',
-            headers={'Authorization': f'Bearer {token}'},
-            json={
-            'status': 'test',
-            'media_ids': [],
-            'poll[options]': [],
-            'poll[expires_in]': 0
-            }
-        )
-        if r.status_code != 200:
-            return make_response(f'Failed to get user infomation: {r.text}', 500)
-        
-        toot = r.json()
+        account = r.json()
 
-        session['username'] = toot['account']['username']
+        session['username'] = account['username']
         session['acct'] = f'{session["username"]}@{session["hostname"]}'
-
-        mstdn = mastodon.Mastodon(client_id=session['mstdn_app_key'], client_secret=session['mstdn_app_secret'], access_token=token, api_base_url=f'https://{session["hostname"]}')
         
-        toots = mstdn.account_statuses(toot['account']['id'], limit=1000)
-        print(toots)
+        thread_id = str(uuid.uuid4())
+        job_status[thread_id] = {
+            'completed': False,
+            'error': None
+        }
 
+        def proc(job_id, data):
 
-        session['token'] = d['access_token']
+            mstdn = mastodon.Mastodon(client_id=data['mstdn_app_key'], client_secret=data['mstdn_app_secret'], access_token=token, api_base_url=f'https://{data["hostname"]}')
+            toots = mstdn.account_statuses(account['id'], limit=5000)
+
+            # 解析用に文字列整形
+            lines = []
+            for toot in toots:
+                if toot['content']:
+                    if len(toot['content']) > 2:
+                        for l in toot['content'].splitlines():
+                            tx = re.sub(r'<[^>]*>', '', l)
+                            lines.append(format_text(tx))
+            
+            try:
+                text_model = create_markov_model_by_multiline(lines)
+            except Exception as e:
+                job_status[job_id] = {
+                    'completed': True,
+                    'error': 'Failed to create model: ' + str(e)
+                }
+                return
+
+            # モデル保存
+            try:
+                cur = db.cursor()
+                cur.execute('REPLACE INTO model_data(acct, data) VALUES (?, ?)', (data['acct'], text_model.to_json()))
+                cur.close()
+                db.commit()
+            except:
+                print(traceback.format_exc())
+                job_status[job_id] = {
+                    'completed': True,
+                    'error': 'Failed to save model to database'
+                }
+                return
+            
+            job_status[job_id] = {
+                'completed': True,
+                'error': None
+            }
+        
+        thread = threading.Thread(target=proc, args=(thread_id,{
+            'hostname': session['hostname'],
+            'mstdn_app_key': session['mstdn_app_key'],
+            'mstdn_app_secret': session['mstdn_app_secret'],
+            'acct': session['acct']
+        }))
+        thread.start()
+
         session['logged_in'] = True
+        return redirect('/job_wait?job_id=' + thread_id)
 
+@app.route('/job_wait')
+def job_wait():
+    job_id = request.args.get('job_id')
+    if not job_id:
+        return make_response('<meta name="viewport" content="width=device-width">Invaild job id', 400)
+    
+    if job_id not in list(job_status.keys()):
+        return make_response('<meta name="viewport" content="width=device-width">No such job', 400)
+    
+    # job_wait.html で自動リロードしながら待機させる
+
+    if not job_status[job_id]['completed']:
+        return render_template('job_wait.html', job_id=job_id)
+    
+    if job_status[job_id]['error']:
+        return make_response(job_status[job_id]['error'], 500)
+
+    return redirect('/generate')
 
 @app.route('/generate')
 def generate_page():
