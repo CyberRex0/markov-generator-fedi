@@ -60,7 +60,10 @@
                         <input id="input_acct" type="text" name="acct" class="form-control" placeholder="username@host" aria-label="アカウント名" value="{{ acct or request.args.get('preset', '') }}">
                         
                         <label for="input_min_words" class="form-label">最低単語数</label>
-                        <input id="input_min_words" type="number" name="min_words" class="form-control" placeholder="最低単語数(任意)" aria-label="単語数" min="2" max="50" value="{{ min_words or request.args.get('min_words', '') }}">
+                        <input id="input_min_words" type="number" name="min_words" class="form-control" placeholder="最低単語数(任意)" aria-label="単語数" min="1" max="50" value="{{ min_words or request.args.get('min_words', '') }}">
+
+                        <label for="input_startswith" class="form-label">開始文字列</label>
+                        <input id="input_startswith" type="text" name="startswith" class="form-control" placeholder="開始文字列(任意)" aria-label="開始文字列" value="{{ startswith or request.args.get('startswith', '') }}">
                         
                         <input type="submit" class="btn btn-primary" value="生成">
                         {% if session.get('logged_in') %}
@@ -81,7 +84,7 @@
                     <li class="list-group-item">
                         {{ text }}
                         {% if failed %}
-                        <span style="color:red">文章を生成できませんでした。最低単語数を減らしてみてください。</span>
+                        <span style="color:red">文章を生成できませんでした。最低単語数を減らしたり、開始文字列を変えてみてください。(何回か繰り返すと生成できることもあります)</span>
                         {% endif %}
                     </li>
                 </ul>

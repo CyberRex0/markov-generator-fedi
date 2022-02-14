@@ -404,6 +404,7 @@ def generate_do():
     query = request.args
     
     min_words = 1
+    startswith = ''
     if query.get('min_words'):
         if query['min_words'].isdigit():
             min_words = int(query['min_words'])
@@ -411,6 +412,11 @@ def generate_do():
                 min_words = 1
             if min_words > 50:
                 min_words = 50
+    
+    if query.get('startswith'):
+        startswith = query['startswith'].strip()
+        if len(startswith) > 10:
+            startswith = startswith[:10]
 
     if not query.get('acct'):
         if not session.get('logged_in'):
@@ -446,14 +452,27 @@ def generate_do():
         tries=100,
         min_words=min_words
     )
-    try:
-        text = text_model.make_sentence(**markov_params).replace(' ', '')
-    except AttributeError:
-        text = None
-    if not text:
+
+    loop_count = 1
+    sw_found = False
+    if startswith:
+        loop_count = 256
+
+    for i in range(loop_count):
+        try:
+            text = text_model.make_sentence(**markov_params).replace(' ', '')
+        except AttributeError:
+            text = None
+        
+        if text:
+            if text.startswith(startswith):
+                sw_found = True
+                break
+    
+    if (not text) or (startswith and not sw_found):
         return render_template('generate.html', text='', acct=acct, share_text='', min_words=min_words, failed=True)
 
-    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}'
+    share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}{"&startswith=" + urllib.parse.quote(startswith) if startswith else ""}'
         
     return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text), min_words=min_words, failed=False)
 
