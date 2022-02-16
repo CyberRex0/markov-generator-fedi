@@ -80,12 +80,16 @@ def login():
         return make_response('type is required', 400)
     if not data.get('hostname'):
         return make_response('hostname is required', 400)
+    if not data.get('noImportPrivatePost'):
+        return make_response('noImportPrivatePost is required', 400)
     
     if data['type'] == 'misskey':
         session['logged_in'] = False
         session.permanent = True
         session['hostname'] = data['hostname']
         session['type'] = data['type']
+        session['noImportPrivatePost'] = data['noImportPrivatePost']
+
         mi = Misskey(address=data['hostname'], session=request_session)
         instance_info = mi.meta()
 
@@ -97,7 +101,6 @@ def login():
             return redirect(url)
         else:
             # v12.39.1以前のインスタンス向け
-
             options = {
                 'name': 'markov-generator-fedi (Legacy)',
                 'callback': f'{request.host_url}login/callback',
@@ -128,6 +131,7 @@ def login():
         session.permanent = True
         session['hostname'] = data['hostname']
         session['type'] = data['type']
+        session['noImportPrivatePost'] = data['noImportPrivatePost']
         
         options = {
             'client_name': 'markov-generator-fedi',
@@ -181,7 +185,6 @@ def login_msk_callback():
             access_token = j['accessToken']
             ccStr = f'{access_token}{secret_key}'
             token = hashlib.sha256(ccStr.encode('utf-8')).hexdigest()
-            
 
         mi: Misskey = Misskey(address=session['hostname'], i=token, session=request_session)
         i = mi.i()
@@ -198,6 +201,8 @@ def login_msk_callback():
             'progress_str': '初期化中です'
         }
 
+        noImportPrivate = session['noImportPrivatePost']
+
         def proc(job_id, data):
             
             job_status[job_id]['progress'] = 20
@@ -207,13 +212,19 @@ def login_msk_callback():
             notes = []
             kwargs = {}
             mi2: Misskey = Misskey(address=data['hostname'], i=token, session=request_session)
+
             for i in range(50):
                 notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, limit=100, **kwargs)
                 if not notes_block:
                     break
                 else:
                     kwargs['until_id'] = notes_block[-1]['id']
-                    notes.extend(notes_block)
+                    # notes.extend(notes_block)
+                    for note in notes_block:
+                        if noImportPrivate:
+                            if not (note['visibility'] == 'public' or note['visibility'] == 'home'):
+                                continue
+                        notes.append(note)
             
             job_status[job_id]['progress'] = 50
 
@@ -309,6 +320,8 @@ def login_msk_callback():
             'progress_str': '初期化中です'
         }
 
+        noImportPrivate = session['noImportPrivatePost']
+
         def proc(job_id, data):
 
             job_status[job_id]['progress'] = 20
@@ -322,6 +335,9 @@ def login_msk_callback():
             # 解析用に文字列整形
             lines = []
             for toot in toots:
+                if not (toot['visibility'] == 'public' or toot['visibility'] == 'unlisted'):
+                    continue
+
                 if toot['content']:
                     if len(toot['content']) > 2:
                         for l in toot['content'].splitlines():
@@ -475,6 +491,10 @@ def generate_do():
     share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}{"&startswith=" + urllib.parse.quote(startswith) if startswith else ""}'
         
     return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text), min_words=min_words, failed=False)
+
+@app.route('/privacy')
+def privacy_page():
+    return render_template('privacypolicy.html')
 
 @app.route('/logout')
 def logout():
