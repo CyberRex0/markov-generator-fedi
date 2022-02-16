@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width">
+        <title>マルコフ連鎖ジェネレーター for Fediverse | プライバシーポリシー</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+        <style type="text/css">
+            body {
+                margin: 4px;
+            }
+        </style>
+
+        <!-- OGP -->
+        <meta property="og:title" content="マルコフ連鎖ジェネレーター for Fediverse | プライバシーポリシー">
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="{{ request.url }}">
+        <meta property="og:description" content="">
+    </head>
+    <body>
+        <div class="container">
+
+            <div>
+                <a href="/">Top</a> &gt; プライバシーポリシー
+            </div>
+
+            <h1>プライバシーポリシー</h1>
+
+            <h2>データの取り扱い</h2>
+            <p>
+                このサイトでは、ユーザーの投稿を収集し、それをもとに機械学習された文章を生成します。<br>
+                収集した投稿データは、本来の目的以外に利用することはありません。<br>
+                Misskey/Mastodonとの連携に使用するログイン情報は学習時にのみ使用され、学習が完了した後は破棄されます。
+            </p>
+
+            <br>
+
+            <h2>データ保管場所</h2>
+            <p>
+                学習データは、以下の場所に保管されます。<br>
+                <ul>
+                    <li>
+                        Linode VPS Tokyo-2 (東京都品川区, Linode LLC)
+                    </li>
+                </ul>
+            </p>
+
+            <br>
+
+            <h2>学習データの削除について</h2>
+            <p>
+                当サイトでは学習データの削除依頼を受け付けています。<br>
+                削除を希望される方は、アカウント名を添えて、<span style="font-style: monospace;" id="83rh">ESCAPED BY EMAIL PROTECTION</span> までメールでお問い合わせください。<br>
+                <small>(☆を@に変えてください)</small>
+            </p>
+
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+        <script type="text/javascript">
+            $(function () {
+                eval(function(p,a,c,k,e,d){e=function(c){return c};if(!''.replace(/^/,String)){while(c--){d[c]=k[c]||c}k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1};while(c--){if(k[c]){p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c])}}return p}('6 5="4"+"3"+"☆"+"2."+"1."+"0";',7,7,'jp|rspeml|adm|rex|cyber|privacy_email_address|var'.split('|'),0,{}));
+                $('#83rh').text(privacy_email_address);
+            });
+        </script>
+    </body>
+</html>
