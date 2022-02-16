@@ -23,7 +23,7 @@
     <body>
         <div class="container">
             <h1>マルコフ連鎖ジェネレーター for Fediverse</h1>
-            <p>
+            <div>
                 {% if not session.get('logged_in') %}
                 <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal">ログインして学習</a><br>
                 {% else %}
@@ -31,14 +31,14 @@
                 <a href="/logout">ログアウト</a><br>
                 {% endif %}
                 <a href="/generate">文章生成</a>
-            </p>
+            </div>
 
             <!-- Login Modal -->
-            <div class="modal fade " id="loginModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal fade " id="loginModal" tabindex="-1" aria-labelledby="loginModalTitle" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLabel">ログインして学習する</h5>
+                        <h5 class="modal-title" id="loginModalTitle">ログインして学習する</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
@@ -56,6 +56,19 @@
                             <div class="form-input">
                                 <input type="text" name="hostname" id="hostname" class="form-control" placeholder="example.com" required>
                             </div>
+
+                            <br>
+                            
+                            <details>
+                                <summary>プライバシー設定</summary>
+                                
+                                <div class="form-check">
+                                    <label class="form-check-label" for="noImportPrivatePost">一般公開している投稿のみ取り込む</label>
+                                    <input type="checkbox" name="noImportPrivatePost" id="noImportPrivatePost" class="form-check-input">
+                                </div>
+                            </details>
+                            <br>
+                            <small>このサービスを利用すると<a href="/privacy">プライバシーポリシー</a>に同意したことになります</small>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
