@@ -80,15 +80,15 @@ def login():
         return make_response('type is required', 400)
     if not data.get('hostname'):
         return make_response('hostname is required', 400)
-    if not data.get('noImportPrivatePost'):
-        return make_response('noImportPrivatePost is required', 400)
+    #if not data.get('noImportPrivatePost'):
+        #return make_response('noImportPrivatePost is required', 400)
     
     if data['type'] == 'misskey':
         session['logged_in'] = False
         session.permanent = True
         session['hostname'] = data['hostname']
         session['type'] = data['type']
-        session['noImportPrivatePost'] = data['noImportPrivatePost']
+        session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
 
         mi = Misskey(address=data['hostname'], session=request_session)
         instance_info = mi.meta()
@@ -131,7 +131,7 @@ def login():
         session.permanent = True
         session['hostname'] = data['hostname']
         session['type'] = data['type']
-        session['noImportPrivatePost'] = data['noImportPrivatePost']
+        session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
         
         options = {
             'client_name': 'markov-generator-fedi',
