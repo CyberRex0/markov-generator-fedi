@@ -1,5 +1,6 @@
 import traceback
 from flask import Flask, make_response, render_template, request, redirect, session
+import json
 import mastodon
 from misskey import Misskey, MiAuth, Permissions
 from misskey.exceptions import *
@@ -17,6 +18,7 @@ import hashlib
 import re
 import threading
 import time
+import Levenshtein as levsh
 
 def dict_factory(cursor, row):
    d = {}
@@ -497,14 +499,30 @@ def generate_do():
         text = None
     except KeyError:
         text = None
-        sw_failed = True
+        if startswith:
+            sw_failed = True
 
     
     et = time.perf_counter()
     proc_time = (et - st) * 1000
     
+    if sw_failed:
+        m = json.loads(data['data'])
+        chain = json.loads(m['chain'])
+        first_chains = list(chain[0][1].keys())
+        del m
+        del chain
+        word_lv_ratios = []
+        for c in first_chains:
+            word_lv_ratios.append(
+                dict(word=c, ratio=levsh.ratio(startswith, c))
+            )
+        word_lv_ratios.sort(key=lambda x: x['ratio'], reverse=True)
+        sw_suggest = ' '.join([f'「{x["word"]}」' for x in word_lv_ratios[:5]])
+
+
     if not text:
-        return render_template('generate.html', text='', acct=acct, share_text='', min_words=min_words, failed=True, sw_failed=sw_failed)
+        return render_template('generate.html', text='', acct=acct, share_text='', min_words=min_words, failed=True, proc_time=proc_time, sw_failed=sw_failed, sw_suggest=sw_suggest)
 
     share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}{"&startswith=" + urllib.parse.quote(startswith) if startswith else ""}'
         
