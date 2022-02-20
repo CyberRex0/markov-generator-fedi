@@ -94,6 +94,10 @@
                 <button id="copyButton" class="btn btn-primary" data-bs-trigger="manual" data-toggle="tooltip" data-bs-placement="bottom" title="コピーしました" {{ 'disabled' if failed }}><i class="bi bi-clipboard"></i>クリップボードにコピー</button>
                 &nbsp;
                 <button class="btn btn-primary" data-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="bottom" title="文章を再生成します" onclick="location.reload();"><i class="bi bi-arrow-clockwise"></i></button>
+                &nbsp;
+                {% if not failed %}
+                    <span style="color:gray">{{ '{0:.2f}'.format(proc_time) }}ms</span>
+                {% endif %}
             </div>
             {% endif %}
 
