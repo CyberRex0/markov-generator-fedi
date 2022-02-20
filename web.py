@@ -16,6 +16,7 @@ import uuid
 import hashlib
 import re
 import threading
+import time
 
 def dict_factory(cursor, row):
    d = {}
@@ -58,6 +59,7 @@ db.row_factory = dict_factory
 #   'completed': bool[True, False], # ジョブが停止したかどうか
 #   'error': Optional[str], # エラーが発生した場合のエラーメッセージ (エラーない時はNoneにする)
 #   'progress': int, # 完了率 (0-100、任意)
+#   'result': Optional[str] # 完了した時のメッセージ (完了していない時はNoneにする)
 # }
 job_status = {}
 
@@ -204,6 +206,8 @@ def login_msk_callback():
         noImportPrivate = session['noImportPrivatePost']
 
         def proc(job_id, data):
+
+            st = time.time()
             
             job_status[job_id]['progress'] = 20
             job_status[job_id]['progress_str'] = '投稿を取得しています。数秒かかります'
@@ -225,6 +229,7 @@ def login_msk_callback():
                             if not (note['visibility'] == 'public' or note['visibility'] == 'home'):
                                 continue
                         notes.append(note)
+                job_status[job_id]['progress'] = 20 + ((i/50)*30)
             
             job_status[job_id]['progress'] = 50
 
@@ -269,7 +274,8 @@ def login_msk_callback():
                 'completed': True,
                 'error': None,
                 'progress': 100,
-                'progress_str': '完了'
+                'progress_str': '完了',
+                'result': f'取り込み済投稿数: {len(notes)}<br>処理時間: {(time.time() - st)*1000:.2f} ミリ秒'
             }
 
         thread = threading.Thread(target=proc, args=(thread_id, {
@@ -324,6 +330,8 @@ def login_msk_callback():
 
         def proc(job_id, data):
 
+            st = time.time()
+
             job_status[job_id]['progress'] = 20
             job_status[job_id]['progress_str'] = '投稿を取得しています。'
 
@@ -334,10 +342,11 @@ def login_msk_callback():
 
             # 解析用に文字列整形
             lines = []
+            imported_toots = 0
             for toot in toots:
                 if not (toot['visibility'] == 'public' or toot['visibility'] == 'unlisted'):
                     continue
-
+                imported_toots += 1
                 if toot['content']:
                     if len(toot['content']) > 2:
                         for l in toot['content'].splitlines():
@@ -377,7 +386,8 @@ def login_msk_callback():
                 'completed': True,
                 'error': None,
                 'progress': 100,
-                'progress_str': '完了'
+                'progress_str': '完了',
+                'result': f'取り込み済投稿数: {len(imported_toots)}<br>処理時間: {(time.time() - st)*1000:.2f} ミリ秒'
             }
         
         thread = threading.Thread(target=proc, args=(thread_id,{
@@ -408,8 +418,10 @@ def job_wait():
     if job_status[job_id]['error']:
         return make_response(job_status[job_id]['error'], 500)
 
-    job_status.pop(job_id)
-    return redirect('/generate')
+    # ジョブ完了時
+
+    job = job_status.pop(job_id)
+    return render_template('job_result.html', job=job)
 
 @app.route('/generate')
 def generate_page():
@@ -474,6 +486,7 @@ def generate_do():
     if startswith:
         loop_count = 256
 
+    st = time.perf_counter()
     for i in range(loop_count):
         try:
             text = text_model.make_sentence(**markov_params).replace(' ', '')
@@ -484,13 +497,15 @@ def generate_do():
             if text.startswith(startswith):
                 sw_found = True
                 break
+    et = time.perf_counter()
+    proc_time = (et - st) * 1000
     
     if (not text) or (startswith and not sw_found):
         return render_template('generate.html', text='', acct=acct, share_text='', min_words=min_words, failed=True)
 
     share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}{"&startswith=" + urllib.parse.quote(startswith) if startswith else ""}'
         
-    return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text), min_words=min_words, failed=False)
+    return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text), min_words=min_words, failed=False, proc_time=proc_time)
 
 @app.route('/privacy')
 def privacy_page():
