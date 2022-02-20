@@ -482,26 +482,29 @@ def generate_do():
     )
 
     loop_count = 1
-    sw_found = False
+    sw_failed = False
     if startswith:
         loop_count = 256
 
     st = time.perf_counter()
-    for i in range(loop_count):
-        try:
+
+    try:
+        if startswith:
+            text = text_model.make_sentence_with_start(startswith, **markov_params).replace(' ', '')
+        else:
             text = text_model.make_sentence(**markov_params).replace(' ', '')
-        except AttributeError:
-            text = None
-        
-        if text:
-            if text.startswith(startswith):
-                sw_found = True
-                break
+    except AttributeError:
+        text = None
+    except KeyError:
+        text = None
+        sw_failed = True
+
+    
     et = time.perf_counter()
     proc_time = (et - st) * 1000
     
-    if (not text) or (startswith and not sw_found):
-        return render_template('generate.html', text='', acct=acct, share_text='', min_words=min_words, failed=True)
+    if not text:
+        return render_template('generate.html', text='', acct=acct, share_text='', min_words=min_words, failed=True, sw_failed=sw_failed)
 
     share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}{"&startswith=" + urllib.parse.quote(startswith) if startswith else ""}'
         

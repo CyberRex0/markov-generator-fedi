@@ -84,7 +84,14 @@
                     <li class="list-group-item">
                         {{ text }}
                         {% if failed %}
-                        <span style="color:red">文章を生成できませんでした。最低単語数を減らしたり、開始文字列を変えてみてください。(何回か繰り返すと生成できることもあります)</span>
+                            {% if not sw_failed %}
+                                <span style="color:red">文章を生成できませんでした。最低単語数を減らしたり、開始文字列を変えてみてください。(何回か繰り返すと生成できることもあります)</span>
+                            {% else %}
+                                <span style="color:red">
+                                    指定された文字列で始まる文章を生成できませんでした。開始文字列を変えてみてください。<br>
+                                    <small>例：「ウマ娘」ではなく「ウマ」にすると生成できることがあります。</small>
+                                </span>
+                            {% endif %}
                         {% endif %}
                     </li>
                 </ul>
