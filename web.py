@@ -220,7 +220,7 @@ def login_msk_callback():
             mi2: Misskey = Misskey(address=data['hostname'], i=token, session=request_session)
 
             for i in range(50):
-                notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, limit=100, **kwargs)
+                notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, with_files=False, limit=100, **kwargs)
                 if not notes_block:
                     break
                 else:
