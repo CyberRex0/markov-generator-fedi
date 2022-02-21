@@ -63,6 +63,21 @@
                             <br>
                             
                             <details>
+                                <summary>取り込み設定</summary>
+
+                                <div class="form-check">
+                                    <label class="form-select-label" for="import_size">取り込み件数</label>
+                                    <select class="form-select" name="import_size" id="import_size">
+                                        {% for i in range(1000, 21000, 1000) %}
+                                            <option value="{{ i }}" {{ 'selected' if i == 10000 else '' }}>{{ i }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </details>
+
+                            <br>
+                            
+                            <details>
                                 <summary>プライバシー設定</summary>
                                 
                                 <div class="form-check">

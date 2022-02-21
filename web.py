@@ -95,8 +95,21 @@ def login():
         return make_response('type is required', 400)
     if not data.get('hostname'):
         return make_response('hostname is required', 400)
+    if not data.get('import_size'):
+        return make_response('import_size is required', 400)
     #if not data.get('noImportPrivatePost'):
         #return make_response('noImportPrivatePost is required', 400)
+
+    import_size_str = data['import_size']
+    try:
+        import_size = int(data['import_size'])
+    except:
+        return make_response('import_size is invalid', 400)
+    
+    if import_size < 1000 or import_size > 20000:
+        return make_response('import_size is must be between 1000 and 20000', 400)
+    
+    session['import_size'] = import_size
     
     if data['type'] == 'misskey':
         session['logged_in'] = False
@@ -234,7 +247,7 @@ def login_msk_callback():
             withfiles = False
             mi2: Misskey = Misskey(address=data['hostname'], i=token, session=request_session)
             userdata_block = mi2.users_show(user_id=data['user_id'])
-            for i in range(int(userdata_block['notesCount']/100)):
+            for i in range(int(data['import_size']/100)):
                 notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, with_files=withfiles, limit=100, **kwargs)
                 if not notes_block:
                     if not withfiles:
@@ -303,7 +316,8 @@ def login_msk_callback():
             'hostname': session['hostname'],
             'token': token,
             'acct': session['acct'],
-            'user_id': session['user_id']
+            'user_id': session['user_id'],
+            'import_size': session['import_size']
         }), name=thread_id)
         thread.start()
 
@@ -360,7 +374,7 @@ def login_msk_callback():
             job_status[job_id]['progress_str'] = '投稿を取得しています。'
 
             mstdn = mastodon.Mastodon(client_id=data['mstdn_app_key'], client_secret=data['mstdn_app_secret'], access_token=token, api_base_url=f'https://{data["hostname"]}', session=request_session)
-            toots = mstdn.account_statuses(account['id'], limit=5000)
+            toots = mstdn.account_statuses(account['id'], limit=data['import_size'])
 
             job_status[job_id]['progress'] = 50
 
@@ -418,7 +432,8 @@ def login_msk_callback():
             'hostname': session['hostname'],
             'mstdn_app_key': session['mstdn_app_key'],
             'mstdn_app_secret': session['mstdn_app_secret'],
-            'acct': session['acct']
+            'acct': session['acct'],
+            'import_size': session['import_size']
         }), name=thread_id)
         thread.start()
 
