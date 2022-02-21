@@ -217,12 +217,17 @@ def login_msk_callback():
             # 学習に使うノートを取得
             notes = []
             kwargs = {}
+            withfiles = False
             mi2: Misskey = Misskey(address=data['hostname'], i=token, session=request_session)
-
-            for i in range(50):
-                notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, limit=100, **kwargs)
+            userdata_block = mi2.users_show(user_id=data['user_id'])
+            for i in range(int(userdata_block['notesCount']/100)):
+                notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, with_files=withfiles, limit=100, **kwargs)
                 if not notes_block:
-                    break
+                    if not withfiles:
+                        withfiles = True
+                        continue
+                    else:
+                        break
                 else:
                     kwargs['until_id'] = notes_block[-1]['id']
                     # notes.extend(notes_block)
@@ -231,7 +236,7 @@ def login_msk_callback():
                             if not (note['visibility'] == 'public' or note['visibility'] == 'home'):
                                 continue
                         notes.append(note)
-                job_status[job_id]['progress'] = 20 + ((i/50)*30)
+                job_status[job_id]['progress'] = 20 + ((i/int(userdata_block['notesCount']/100))*30)
             
             job_status[job_id]['progress'] = 50
 
