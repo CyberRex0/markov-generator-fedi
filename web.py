@@ -1,4 +1,6 @@
 import traceback
+from types import TracebackType
+from typing import Type
 from flask import Flask, make_response, render_template, request, redirect, session
 import json
 import mastodon
@@ -19,6 +21,15 @@ import re
 import threading
 import time
 import Levenshtein as levsh
+
+def proc_error_hook(args):
+    print(''.join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback)))
+    job_status[args.thread.name] = {
+        'completed': True,
+        'error': f'スレッドが異常終了しました<br><strong>{args.exc_type.__name__}</strong><div>{str(args.exc_value)}</div>'
+    }
+
+threading.excepthook = proc_error_hook
 
 def dict_factory(cursor, row):
    d = {}
@@ -94,7 +105,10 @@ def login():
         session['type'] = data['type']
         session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
 
-        mi = Misskey(address=data['hostname'], session=request_session)
+        try:
+            mi = Misskey(address=data['hostname'], session=request_session)
+        except requests.exceptions.ConnectionError:
+            return make_response('<meta name="viewport" content="width=device-width">インスタンスと通信できませんでした。(ConnectionError)', 500)
         instance_info = mi.meta()
 
         if instance_info['features'].get('miauth') == True:
@@ -290,8 +304,10 @@ def login_msk_callback():
             'token': token,
             'acct': session['acct'],
             'user_id': session['user_id']
-        }))
+        }), name=thread_id)
         thread.start()
+
+        job_status[thread_id]['thread'] = thread
 
         session['logged_in'] = True
         return redirect('/job_wait?job_id=' + thread_id)
@@ -330,7 +346,8 @@ def login_msk_callback():
             'completed': False,
             'error': None,
             'progress': 1,
-            'progress_str': '初期化中です'
+            'progress_str': '初期化中です',
+            'thread': None
         }
 
         noImportPrivate = session['noImportPrivatePost']
@@ -402,11 +419,17 @@ def login_msk_callback():
             'mstdn_app_key': session['mstdn_app_key'],
             'mstdn_app_secret': session['mstdn_app_secret'],
             'acct': session['acct']
-        }))
+        }), name=thread_id)
         thread.start()
+
+        job_status[thread_id]['thread'] = thread
 
         session['logged_in'] = True
         return redirect('/job_wait?job_id=' + thread_id)
+
+@app.route('/error_test')
+def error_test():
+    return render_template('job_error.html', job={'error': request.args.get('text')})
 
 @app.route('/job_wait')
 def job_wait():
@@ -420,10 +443,14 @@ def job_wait():
     # job_wait.html で自動リロードしながら待機させる
 
     if not job_status[job_id]['completed']:
+        # thread is dead
+        if not job_status[job_id]['thread'].is_alive():
+            return make_response(render_template('job_error.html', message='スレッドが異常終了しました'), 500)
+        
         return render_template('job_wait.html', d=job_status[job_id])
     
     if job_status[job_id]['error']:
-        return make_response(job_status[job_id]['error'], 500)
+        return make_response(render_template('job_error.html', message=job_status[job_id]['error']), 500)
 
     # ジョブ完了時
 
