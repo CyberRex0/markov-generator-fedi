@@ -21,6 +21,8 @@ import re
 import threading
 import time
 import Levenshtein as levsh
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 def proc_error_hook(args):
     print(''.join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback)))
@@ -46,6 +48,7 @@ def format_text(t):
     t = re.sub(r'\n +', '\n', t)  # Spaces
     t = re.sub(r'\n+', r'\n', t).rstrip('\n')  # Empty lines
     t = re.sub(r'\n +', '\n', t)  # Spaces
+    t = re.sub(r'(http|ftp|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?', '', t) # URL
     return t
 
 def create_markov_model_by_multiline(lines: list):
@@ -75,6 +78,21 @@ db.row_factory = dict_factory
 #   'result': Optional[str] # 完了した時のメッセージ (完了していない時はNoneにする)
 # }
 job_status = {}
+
+
+# Sentry Logger
+try:
+    sentry_sdk.init(
+        dsn=config.SENTRY_DSN,
+        integrations=[FlaskIntegration()],
+
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production.
+        traces_sample_rate=1.0
+    )
+except AttributeError:
+    pass
 
 app = Flask(__name__)
 # ランダムバイトから鍵生成
@@ -544,6 +562,10 @@ def generate_do():
             text = text_model.make_sentence(**markov_params).replace(' ', '')
     except AttributeError:
         text = None
+    except markovify.text.ParamError:
+        text = None
+        if startswith:
+            sw_failed = True
     except KeyError:
         text = None
         if startswith:
@@ -585,4 +607,17 @@ def logout():
     return redirect('/')
 
 
-app.run(host='127.0.0.1', port=getattr(config, 'PORT') or 8888, debug=getattr(config, 'DEBUG') or True, threaded=True)
+PORT = 8888
+DEBUG = True
+
+try:
+    PORT = config.PORT
+except AttributeError:
+    pass
+
+try:
+    DEBUG = config.DEBUG
+except AttributeError:
+    pass
+
+app.run(host='127.0.0.1', port=PORT, debug=DEBUG, threaded=True)
