@@ -267,6 +267,8 @@ def login_msk_callback():
             mi2: Misskey = Misskey(address=data['hostname'], i=token, session=request_session)
             userdata_block = mi2.users_show(user_id=data['user_id'])
 
+            took_time_array = []
+
             for i in range(int(data['import_size']/100)):
                 t = time.time()
                 notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, with_files=withfiles, limit=100, **kwargs)
@@ -287,10 +289,14 @@ def login_msk_callback():
                 job_status[job_id]['progress'] = 20 + ((i/int(userdata_block['notesCount']/100))*30)
 
                 # 残り時間計算
-                est = (time.time() - t) * ((int(userdata_block['notesCount'])/100) - i)
-                est_min = math.floor(est/60)
-                est_sec = math.floor(est%60)
-                job_status[job_id]['progress_str'] = f'投稿を取得しています。 (残 {str(est_min)+"分" if est_min>0 else ""}{est_sec}秒)'
+                if took_time_array:
+                    avg_took_time = sum(took_time_array) / len(took_time_array)
+                    est = (avg_took_time) * ((int(userdata_block['notesCount'])/100) - i)
+                    est_min = math.floor(est/60)
+                    est_sec = math.floor(est%60)
+                    job_status[job_id]['progress_str'] = f'投稿を取得しています。 (残 {str(est_min)+"分" if est_min>0 else ""}{est_sec}秒)'
+                
+                took_time_array.append(time.time() - t)
             
             job_status[job_id]['progress'] = 50
 
