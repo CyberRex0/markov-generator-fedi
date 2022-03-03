@@ -1,3 +1,4 @@
+import html
 import math
 import traceback
 from types import TracebackType
@@ -24,6 +25,15 @@ import time
 import Levenshtein as levsh
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
+
+def format_bytes(size):
+    power = 2 ** 10  # 2**10 = 1024
+    n = 0
+    power_labels = ['B', 'KB', 'MB', 'GB', 'TB']
+    while size > power and n <= len(power_labels):
+        size /= power
+        n += 1
+    return '{:.0f} {}'.format(size, power_labels[n])
 
 def proc_error_hook(args):
     print(''.join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback)))
@@ -572,9 +582,11 @@ def generate_do():
 
     try:
         if startswith:
-            text = text_model.make_sentence_with_start(startswith, **markov_params).replace(' ', '')
+            gen_text = text_model.make_sentence_with_start(startswith, **markov_params)
         else:
-            text = text_model.make_sentence(**markov_params).replace(' ', '')
+            gen_text = text_model.make_sentence(**markov_params)
+        text = gen_text.replace(' ', '')
+        splited_text = ['<span class="badge bg-info">' + html.escape(t) + '</span>' for t in gen_text.split(' ')]
     except AttributeError:
         text = None
     except markovify.text.ParamError:
@@ -606,11 +618,11 @@ def generate_do():
 
 
     if not text:
-        return render_template('generate.html', text='', acct=acct, share_text='', min_words=min_words, failed=True, proc_time=proc_time, sw_failed=sw_failed, sw_suggest=sw_suggest)
+        return render_template('generate.html', text='', splited_text=[], acct=acct, share_text='', min_words=min_words, failed=True, proc_time=proc_time, sw_failed=sw_failed, sw_suggest=sw_suggest)
 
     share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}{"&startswith=" + urllib.parse.quote(startswith) if startswith else ""}'
         
-    return render_template('generate.html', text=text, acct=acct, share_text=urllib.parse.quote(share_text), min_words=min_words, failed=False, proc_time=proc_time)
+    return render_template('generate.html', text=text, splited_text=splited_text, acct=acct, share_text=urllib.parse.quote(share_text), min_words=min_words, failed=False, proc_time=proc_time, model_data_size=format_bytes(len(data['data'].encode())))
 
 @app.route('/privacy')
 def privacy_page():

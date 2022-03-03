@@ -106,6 +106,25 @@
                 <button class="btn btn-primary" data-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="bottom" title="文章を再生成します" onclick="location.reload();"><i class="bi bi-arrow-clockwise"></i></button>
                 &nbsp;
                 <span style="color:gray">{{ '{0:.2f}'.format(proc_time) }}ms</span>
+                
+                <br>
+                <br>
+                
+                {% if not failed %}
+
+                <details id="detail">
+                    <summary>詳細情報</summary>
+                    <h3>生成過程</h3>
+                        {% autoescape False %}
+                        <p>{{ '&nbsp;→&nbsp;'.join(splited_text) }}</p>
+                        {% endautoescape %}
+                    <h3>学習データサイズ</h3>
+                        <p>{{ model_data_size }}</p>
+
+                </details>
+
+                {% endif %}
+
             </div>
             {% endif %}
 
@@ -131,6 +150,18 @@
                     setTimeout((function () {
                         $(this).tooltip('hide');
                     }).bind(this), 2000);
+                });
+
+                var detail = document.getElementById('detail');
+
+                if (detail) {
+                    if (localStorage.getItem('detail_open') == 'true') {
+                        detail.open = true;
+                    }
+                }
+
+                detail.addEventListener('toggle', function () {
+                    localStorage.setItem('detail_open', detail.open);
                 });
 
             });
