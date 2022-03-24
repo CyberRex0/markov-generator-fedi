@@ -296,7 +296,7 @@ def login_msk_callback():
                             if not (note['visibility'] == 'public' or note['visibility'] == 'home'):
                                 continue
                         notes.append(note)
-                job_status[job_id]['progress'] = 20 + ((i/int(userdata_block['notesCount']/100))*30)
+                job_status[job_id]['progress'] = 20 + ((i/int(userdata_block['notesCount']/100))*60)
 
                 # 残り時間計算
                 if took_time_array:
@@ -307,8 +307,6 @@ def login_msk_callback():
                     job_status[job_id]['progress_str'] = f'投稿を取得しています。 (残 {str(est_min)+"分" if est_min>0 else ""}{est_sec}秒)'
                 
                 took_time_array.append(time.time() - t)
-            
-            job_status[job_id]['progress'] = 50
 
             # 解析用に文字列整形
             lines = []
