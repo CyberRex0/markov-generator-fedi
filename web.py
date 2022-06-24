@@ -65,8 +65,11 @@ def format_text(t):
 def create_markov_model_by_multiline(lines: list):
     # MeCabで形態素解析
     parsed_text = []
+    mecab_options = ['-Owakati']
+    if getattr(config, 'MECAB_DICDIR'):
+        mecab_options.append(f'-d{config.MECAB_DICDIR}')
     for line in lines:
-        parsed_text.append(MeCab.Tagger('-Owakati').parse(line))
+        parsed_text.append(MeCab.Tagger(' '.join(mecab_options)).parse(line))
     
     # モデル作成
     try:
