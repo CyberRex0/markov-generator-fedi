@@ -68,6 +68,8 @@ def create_markov_model_by_multiline(lines: list):
     mecab_options = ['-Owakati']
     if getattr(config, 'MECAB_DICDIR'):
         mecab_options.append(f'-d{config.MECAB_DICDIR}')
+    if getattr(config, 'MECAB_RC'):
+        mecab_options.append(f'-r{config.MECAB_RC}')
     for line in lines:
         parsed_text.append(MeCab.Tagger(' '.join(mecab_options)).parse(line))
     
