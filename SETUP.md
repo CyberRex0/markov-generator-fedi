@@ -11,3 +11,6 @@
 PORT=8888 # Webサーバーの待ち受けポート
 DEBUG=True # デバッグモードで起動するか (本番環境ではFalse推奨)
 ```
+
+# プライバシーポリシーのページについて
+`templates/privacypolicy.html` に配置すると、 `/privacypolicy` でアクセスすることができます。
