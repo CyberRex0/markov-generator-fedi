@@ -49,6 +49,14 @@
 
             <h1>文章生成</h1>
 
+            {% if internal_error %}
+            <div class="alert alert-danger">
+                {% autoescape False %}
+                    {{ internal_error_message }}
+                {% endautoescape %}
+            </div>
+            {% endif %}
+
             <div class="card" style="width: 25rem;">
                 <div class="card-header">
                     設定

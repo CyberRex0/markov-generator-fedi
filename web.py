@@ -66,10 +66,18 @@ def create_markov_model_by_multiline(lines: list):
     # MeCabで形態素解析
     parsed_text = []
     mecab_options = ['-Owakati']
-    if getattr(config, 'MECAB_DICDIR'):
-        mecab_options.append(f'-d{config.MECAB_DICDIR}')
-    if getattr(config, 'MECAB_RC'):
-        mecab_options.append(f'-r{config.MECAB_RC}')
+    try:
+        if getattr(config, 'MECAB_DICDIR'):
+            mecab_options.append(f'-d{config.MECAB_DICDIR}')
+    except:
+        pass
+
+    try:
+        if getattr(config, 'MECAB_RC'):
+            mecab_options.append(f'-r{config.MECAB_RC}')
+    except:
+        pass
+    
     for line in lines:
         parsed_text.append(MeCab.Tagger(' '.join(mecab_options)).parse(line))
     
@@ -81,7 +89,7 @@ def create_markov_model_by_multiline(lines: list):
 
     return text_model
 
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; Markov-Generator-Fedi) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; Markov-Generator-Fedi) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 db = sqlite3.connect('markov.db', check_same_thread=False)
 db.row_factory = dict_factory
@@ -151,6 +159,7 @@ def login():
         session['hostname'] = data['hostname']
         session['type'] = data['type']
         session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
+        session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
 
         try:
             mi = Misskey(address=data['hostname'], session=request_session)
@@ -197,6 +206,7 @@ def login():
         session['hostname'] = data['hostname']
         session['type'] = data['type']
         session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
+        session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
         
         options = {
             'client_name': 'markov-generator-fedi',
@@ -267,6 +277,7 @@ def login_msk_callback():
         }
 
         noImportPrivate = session['noImportPrivatePost']
+        allowGenerateByOther = session['allowGenerateByOther']
 
         def proc(job_id, data):
 
@@ -339,7 +350,7 @@ def login_msk_callback():
             # モデル保存
             try:
                 cur = db.cursor()
-                cur.execute('REPLACE INTO model_data(acct, data) VALUES (?, ?)', (data['acct'], text_model.to_json()))
+                cur.execute('REPLACE INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther)))
                 cur.close()
                 db.commit()
             except:
@@ -411,6 +422,7 @@ def login_msk_callback():
         }
 
         noImportPrivate = session['noImportPrivatePost']
+        allowGenerateByOther = session['allowGenerateByOther']
 
         def proc(job_id, data):
 
@@ -455,7 +467,7 @@ def login_msk_callback():
             # モデル保存
             try:
                 cur = db.cursor()
-                cur.execute('REPLACE INTO model_data(acct, data) VALUES (?, ?)', (data['acct'], text_model.to_json()))
+                cur.execute('REPLACE INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther)))
                 cur.close()
                 db.commit()
             except:
@@ -543,7 +555,7 @@ def generate_do():
 
     if not query.get('acct'):
         if not session.get('logged_in'):
-            return '<meta name="viewport" content="width=device-width">自分の投稿から文章を作るにはログインしてください <a href="/#loginModal">ログインする</a>'
+            return render_template('generate.html', internal_error=True, internal_error_message='自分の投稿から文章を作るにはログインしてください <a href="/#loginModal">ログインする</a>', text='', splited_text=[], share_text='', min_words=min_words)
         
         # 自分のデータで作る
         acct = session['acct']
@@ -551,24 +563,33 @@ def generate_do():
             acct = acct[1:]
 
         cur = db.cursor()
-        cur.execute('SELECT * FROM model_data WHERE acct = ?', (acct,))
+        cur.execute('SELECT data FROM model_data WHERE acct = ?', (acct,))
         data = cur.fetchone()
         cur.close()
 
         if not data:
-            return '<meta name="viewport" content="width=device-width">学習データが見つかりませんでした。 <a href="/logout">ログアウト</a>してから再度ログインしてください。'
+            return render_template('generate.html', internal_error=True, internal_error_message='学習データが見つかりませんでした。 <a href="/logout">ログアウト</a>してから再度ログインしてください。', text='', splited_text=[], acct=acct, share_text='', min_words=min_words)
     else:
         acct = query['acct']
         if acct.startswith('@'):
             acct = acct[1:]
 
         cur = db.cursor()
-        cur.execute('SELECT * FROM model_data WHERE acct = ?', (acct,))
+        cur.execute('SELECT allow_generate_by_other FROM model_data WHERE acct = ?', (acct,))
+        data = cur.fetchone()
+        if not data:
+            return render_template('generate.html', internal_error=True, internal_error_message=f'{acct} の学習データは見つかりませんでした。', text='', splited_text=[], acct=acct, share_text='', min_words=min_words)
+        
+        print(session.get('acct'), acct)
+        
+        allow_generate_by_other = bool(data['allow_generate_by_other'])
+        if (session.get('acct') != acct) and (not allow_generate_by_other):
+            return render_template('generate.html', internal_error=True, internal_error_message='このユーザーは他のユーザーからの文章生成を許可していません。', text='', splited_text=[], acct=acct, share_text='', min_words=min_words)
+
+        cur = db.cursor()
+        cur.execute('SELECT data FROM model_data WHERE acct = ?', (acct,))
         data = cur.fetchone()
         cur.close()
-
-        if not data:
-            return f'<meta name="viewport" content="width=device-width">{acct} の学習データは見つかりませんでした。 '
 
     text_model = markovify.Text.from_json(data['data'])
     markov_params = dict(

@@ -13,7 +13,7 @@ db = sqlite3.connect('markov.db')
 print('Initalizing database...', end='')
 
 cur = db.cursor()
-cur.execute('CREATE TABLE IF NOT EXISTS model_data (acct TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY ("acct"))')
+cur.execute('CREATE TABLE IF NOT EXISTS model_data (acct TEXT NOT NULL PRIMARY KEY, data TEXT NOT NULL, allow_generate_by_other INTEGER NOT NULL)')
 cur.close()
 
 db.commit()
