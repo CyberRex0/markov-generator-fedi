@@ -160,6 +160,7 @@ def login():
         session['type'] = data['type']
         session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
+        session['hasModelData'] = False
 
         try:
             mi = Misskey(address=data['hostname'], session=request_session)
@@ -207,6 +208,7 @@ def login():
         session['type'] = data['type']
         session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
+        session['hasModelData'] = False
         
         options = {
             'client_name': 'markov-generator-fedi',
@@ -350,7 +352,7 @@ def login_msk_callback():
             # モデル保存
             try:
                 cur = db.cursor()
-                cur.execute('REPLACE INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther)))
+                cur.execute('REPLACE INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther == 'on')))
                 cur.close()
                 db.commit()
             except:
@@ -467,7 +469,7 @@ def login_msk_callback():
             # モデル保存
             try:
                 cur = db.cursor()
-                cur.execute('REPLACE INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther)))
+                cur.execute('REPLACE INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther == 'on')))
                 cur.close()
                 db.commit()
             except:
@@ -526,7 +528,7 @@ def job_wait():
         return make_response(render_template('job_error.html', message=job_status[job_id]['error']), 500)
 
     # ジョブ完了時
-
+    session['hasModelData'] = True
     job = job_status.pop(job_id)
     return render_template('job_result.html', job=job)
 
@@ -647,6 +649,35 @@ def generate_do():
     share_text = f'{text}\n\n{acct}\n#markov-generator-fedi\n{request.host_url}generate?preset={urllib.parse.quote(acct)}&min_words={min_words}{"&startswith=" + urllib.parse.quote(startswith) if startswith else ""}'
         
     return render_template('generate.html', text=text, splited_text=splited_text, acct=acct, share_text=urllib.parse.quote(share_text), min_words=min_words, failed=False, proc_time=proc_time, model_data_size=format_bytes(len(data['data'].encode())))
+
+@app.route('/my/delete-model-data', methods=['POST'])
+def my_delete_model_data():
+
+    if not session.get('logged_in'):
+        return make_response('Please login<br><a href="/">Top</a>', 401)
+
+    if not session.get('acct'):
+        return make_response('no acct', 400)
+
+    if request.form.get('agreeDelete') != 'on':
+        return 'Canceled.<br><a href="/">Top</a>'
+    
+    cur = db.cursor()
+    cur.execute('SELECT COUNT(*) FROM model_data WHERE acct = ?', (session['acct'],))
+    res = cur.fetchone()
+    cur.close()
+
+    if res == 0:
+        return 'No data found<br><a href="/">Top</a>'
+
+    cur = db.cursor()
+    cur.execute('DELETE FROM model_data WHERE acct = ?', (session['acct'],))
+    cur.close()
+    db.commit()
+
+    session['hasModelData'] = False
+
+    return 'Deleted successfully!<br><a href="/">Top</a>'
 
 @app.route('/privacy')
 def privacy_page():
