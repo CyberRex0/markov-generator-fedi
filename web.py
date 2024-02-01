@@ -485,7 +485,7 @@ def login_msk_callback():
                 'error': None,
                 'progress': 100,
                 'progress_str': '完了',
-                'result': f'取り込み済投稿数: {len(imported_toots)}<br>処理時間: {(time.time() - st)*1000:.2f} ミリ秒'
+                'result': f'取り込み済投稿数: {imported_toots}<br>処理時間: {(time.time() - st)*1000:.2f} ミリ秒'
             }
         
         thread = threading.Thread(target=proc, args=(thread_id,{
