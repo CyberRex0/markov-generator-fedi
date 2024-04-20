@@ -627,6 +627,7 @@ def generate_do():
     
     et = time.perf_counter()
     proc_time = (et - st) * 1000
+    sw_suggest = ''
     
     if sw_failed:
         m = json.loads(data['data'])
@@ -702,4 +703,5 @@ try:
 except AttributeError:
     pass
 
-app.run(host='127.0.0.1', port=PORT, debug=DEBUG, threaded=True)
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=PORT, debug=DEBUG, threaded=True)
