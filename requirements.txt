@@ -6,3 +6,4 @@ Misskey.py
 Mastodon.py
 python-Levenshtein
 sentry-sdk[flask]
+gunicorn
