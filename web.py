@@ -297,7 +297,7 @@ def login_msk_callback():
 
             took_time_array = []
 
-            for i in range(int(data['import_size']/100)):
+            for i in range(int(data['import_size']/100) + 1):
                 t = time.time()
                 notes_block = mi2.users_notes(data['user_id'], include_replies=False, include_my_renotes=False, with_files=withfiles, limit=100, **kwargs)
                 if not notes_block:
@@ -434,7 +434,16 @@ def login_msk_callback():
             job_status[job_id]['progress_str'] = '投稿を取得しています。'
 
             mstdn = mastodon.Mastodon(client_id=data['mstdn_app_key'], client_secret=data['mstdn_app_secret'], access_token=token, api_base_url=f'https://{data["hostname"]}', session=request_session)
-            toots = mstdn.account_statuses(account['id'], limit=data['import_size'])
+            
+            toots = []
+            last_id = None
+            for i in range(int(data['import_size']/40) + 1):
+                tmptoots = mstdn.account_statuses(account['id'], limit=40, max_id=last_id, exclude_reblogs=True)
+                if not tmptoots:
+                    break
+                toots.extend(tmptoots)
+                last_id = tmptoots[-1]
+            
 
             job_status[job_id]['progress'] = 50
 
