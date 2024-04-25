@@ -156,7 +156,7 @@ def login():
     if data['type'] == 'misskey':
         session['logged_in'] = False
         session.permanent = True
-        session['hostname'] = data['hostname']
+        session['hostname'] = data['hostname'].lower()
         session['type'] = data['type']
         session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
@@ -204,7 +204,7 @@ def login():
     if data['type'] == 'mastodon':
         session['logged_in'] = False
         session.permanent = True
-        session['hostname'] = data['hostname']
+        session['hostname'] = data['hostname'].lower()
         session['type'] = data['type']
         session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
@@ -352,7 +352,8 @@ def login_msk_callback():
             # モデル保存
             try:
                 cur = db.cursor()
-                cur.execute('REPLACE INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther == 'on')))
+                cur.execute('DELETE FROM model_data WHERE acct = ?', (data['acct'],))
+                cur.execute('INSERT INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther == 'on')))
                 cur.close()
                 db.commit()
             except:
@@ -478,7 +479,8 @@ def login_msk_callback():
             # モデル保存
             try:
                 cur = db.cursor()
-                cur.execute('REPLACE INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther == 'on')))
+                cur.execute('DELETE FROM model_data WHERE acct = ?', (data['acct'],))
+                cur.execute('INSERT INTO model_data(acct, data, allow_generate_by_other) VALUES (?, ?, ?)', (data['acct'], text_model.to_json(), int(allowGenerateByOther == 'on')))
                 cur.close()
                 db.commit()
             except:
