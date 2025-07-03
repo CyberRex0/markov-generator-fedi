@@ -327,7 +327,7 @@ def login_msk_callback():
                 try:
                     job_status[job_id]['progress'] = 20 + ((i / (int(userdata_block['notesCount']) / 100)) * 60)
                 except ZeroDivisionError:
-                    job_status[job_id]['progress'] = 25 # Workaround: この場合、代用ロジックを実装するまでもなく所要時間が誤差レベルなので固定値
+                    job_status[job_id]['progress'] = 50 # Workaround: この場合、代用ロジックを実装するまでもなく所要時間が誤差レベルなので固定値
 
                 # 残り時間計算
                 if took_time_array:
