@@ -158,7 +158,7 @@ def login():
         session.permanent = True
         session['hostname'] = data['hostname'].lower()
         session['type'] = data['type']
-        session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
+        session['import_visibility'] = data.get('import_visibility', 'public_only')
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
         session['hasModelData'] = False
 
@@ -206,7 +206,7 @@ def login():
         session.permanent = True
         session['hostname'] = data['hostname'].lower()
         session['type'] = data['type']
-        session['noImportPrivatePost'] = data.get('noImportPrivatePost', False)
+        session['import_visibility'] = data.get('import_visibility', 'public_only')
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
         session['hasModelData'] = False
         
@@ -278,7 +278,7 @@ def login_msk_callback():
             'progress_str': '初期化中です'
         }
 
-        noImportPrivate = session['noImportPrivatePost']
+        import_visibility = session['import_visibility']
         allowGenerateByOther = session['allowGenerateByOther']
 
         def proc(job_id, data):
@@ -310,9 +310,14 @@ def login_msk_callback():
                     kwargs['until_id'] = notes_block[-1]['id']
                     # notes.extend(notes_block)
                     for note in notes_block:
-                        if noImportPrivate:
-                            if not (note['visibility'] == 'public' or note['visibility'] == 'home'):
+                        visibility = note['visibility']
+                        if import_visibility == 'public_only':
+                            if not (visibility == 'public' or visibility == 'home'):
                                 continue
+                        elif import_visibility == 'followers':
+                            if visibility == 'specified':
+                                continue
+                        # 'direct'の場合はすべての投稿を含める
                         notes.append(note)
                 job_status[job_id]['progress'] = 20 + ((i/int(userdata_block['notesCount']/100))*60)
 
@@ -424,7 +429,7 @@ def login_msk_callback():
             'thread': None
         }
 
-        noImportPrivate = session['noImportPrivatePost']
+        import_visibility = session['import_visibility']
         allowGenerateByOther = session['allowGenerateByOther']
 
         def proc(job_id, data):
@@ -452,8 +457,14 @@ def login_msk_callback():
             lines = []
             imported_toots = 0
             for toot in toots:
-                if not (toot['visibility'] == 'public' or toot['visibility'] == 'unlisted'):
-                    continue
+                visibility = toot['visibility']
+                if import_visibility == 'public_only':
+                    if not (visibility == 'public' or visibility == 'unlisted'):
+                        continue
+                elif import_visibility == 'followers':
+                    if visibility == 'direct':
+                        continue
+                # 'direct'の場合はすべての投稿を含める
                 imported_toots += 1
                 if toot['content']:
                     if len(toot['content']) > 2:
