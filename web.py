@@ -158,13 +158,13 @@ def login():
         session.permanent = True
         session['hostname'] = data['hostname'].lower()
         session['type'] = data['type']
-        session['import_visibility'] = data.get('import_visibility', 'public_only')
+        session['importVisibility'] = data.get('importVisibility', 'public_only')
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
         session['hasModelData'] = False
 
         print(f'Login request: {data["hostname"]} ({data["type"]})')
         print(f'Import size: {import_size_str}')
-        print(f'Import visibility: {session["import_visibility"]}')
+        print(f'Import visibility: {session["importVisibility"]}')
 
         try:
             mi = Misskey(address=data['hostname'], session=request_session)
@@ -210,7 +210,7 @@ def login():
         session.permanent = True
         session['hostname'] = data['hostname'].lower()
         session['type'] = data['type']
-        session['import_visibility'] = data.get('import_visibility', 'public_only')
+        session['importVisibility'] = data.get('importVisibility', 'public_only')
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
         session['hasModelData'] = False
         
@@ -282,7 +282,7 @@ def login_msk_callback():
             'progress_str': '初期化中です'
         }
 
-        import_visibility = session['import_visibility']
+        importVisibility = session['importVisibility']
         allowGenerateByOther = session['allowGenerateByOther']
 
         def proc(job_id, data):
@@ -315,10 +315,10 @@ def login_msk_callback():
                     # notes.extend(notes_block)
                     for note in notes_block:
                         visibility = note['visibility']
-                        if import_visibility == 'public_only':
+                        if importVisibility == 'public_only':
                             if not (visibility == 'public' or visibility == 'home'):
                                 continue
-                        elif import_visibility == 'followers':
+                        elif importVisibility == 'followers':
                             if visibility == 'specified':
                                 continue
                         # 'direct'の場合はすべての投稿を含める
@@ -437,7 +437,7 @@ def login_msk_callback():
             'thread': None
         }
 
-        import_visibility = session['import_visibility']
+        importVisibility = session['importVisibility']
         allowGenerateByOther = session['allowGenerateByOther']
 
         def proc(job_id, data):
@@ -466,10 +466,10 @@ def login_msk_callback():
             imported_toots = 0
             for toot in toots:
                 visibility = toot['visibility']
-                if import_visibility == 'public_only':
+                if importVisibility == 'public_only':
                     if not (visibility == 'public' or visibility == 'unlisted'):
                         continue
-                elif import_visibility == 'followers':
+                elif importVisibility == 'followers':
                     if visibility == 'direct':
                         continue
                 # 'direct'の場合はすべての投稿を含める
