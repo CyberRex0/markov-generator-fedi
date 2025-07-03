@@ -86,8 +86,12 @@
                                 <summary>プライバシー設定</summary>
                                 
                                 <div class="form-check">
-                                    <label class="form-check-label" for="noImportPrivatePost">一般公開している投稿のみ取り込む</label>
-                                    <input type="checkbox" name="noImportPrivatePost" id="noImportPrivatePost" class="form-check-input" checked>
+                                    <label class="form-select-label" for="importVisibility">取得範囲</label>
+                                    <select class="form-select" name="importVisibility" id="importVisibility">
+                                        <option value="public_only">公開投稿のみ</option>
+                                        <option value="followers">フォロワー限定まで</option>
+                                        <option value="direct">ダイレクトまで</option>
+                                    </select>
                                 </div>
 
                                 <div class="form-check">
