@@ -162,10 +162,6 @@ def login():
         session['allowGenerateByOther'] = data.get('allowGenerateByOther', False)
         session['hasModelData'] = False
 
-        print(f'Login request: {data["hostname"]} ({data["type"]})')
-        print(f'Import size: {import_size_str}')
-        print(f'Import visibility: {session["importVisibility"]}')
-
         try:
             mi = Misskey(address=data['hostname'], session=request_session)
         except requests.exceptions.ConnectionError:
